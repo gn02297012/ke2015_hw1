@@ -5,9 +5,12 @@
 /* ========== */
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
-ini_set('memory_limit', '4095M');
+ini_set('memory_limit', -1);
 set_time_limit(600);
 mb_internal_encoding('UTF-8');
+define('OUTPUT_MODE_CLI', 'CLI'); //輸出模式-CLI，不印出<br>，最後的結果用逗號隔開
+define('OUTPUT_MODE_HTML', 'HTML'); //輸出模式-HTML，印出<br>，最後的結果用<TABLE>輸出
+define('OUTPUT_MODE', OUTPUT_MODE_HTML); //輸出模式
 
 /* ========== */
 /* 載入相關檔案 */
@@ -28,7 +31,7 @@ $tableName = 'ke2015_sample_news';
 /**
  * 要過濾的特殊字元清單
  */
-$specialCharList = " 　\r\n\t\0\x0B\xc2\xa0\"\'\\\/,,.<>+-*/~!@#$%^&()_，。；：、「」★0123456789０１２３４５６７８９";
+$specialCharList = " 　\r\n\t\0\x0B\xc2\xa0\"\'\\\/,,.<>+-*/~!@#$%^&()_，。；：、「」＋－＊／★0123456789０１２３４５６７８９";
 
 /**
  * N-Grams的上下限
@@ -59,8 +62,12 @@ $sqlMap = array(
  * @param type $text 要印出的文字
  */
 function showText($text = '') {
-    echo "{$text}<br>";
-    ob_flush();
+    if (OUTPUT_MODE === OUTPUT_MODE_CLI) {
+        echo "{$text}\n";
+    } else {
+        echo "{$text}<br>\n";
+        ob_flush();
+    }
     flush();
 }
 
@@ -161,7 +168,6 @@ try {
 //                    $gramMap[$word]->df += 1;
 //                }
                 if (!in_array($id, $gramMap[$word]->documents)) {
-                    //$gramMap[$word]->documents[$id] = 1;
                     $gramMap[$word]->documents[] = $id;
                     $gramMap[$word]->df += 1;
                 }
@@ -183,7 +189,7 @@ try {
     $gramValues = array();
     foreach ($gramMap as $gram) {
         $gram->idf = $rowCount / $gram->df;
-        $gram->tf_idf = (1 + log($gram->tf)) * (log($gram->idf));
+        $gram->tf_idf = (1 + log10($gram->tf)) * (log10($gram->idf));
         $gramWords[] = $gram->word;
         $gramValues[] = $gram->tf_idf;
     }
@@ -263,19 +269,30 @@ try {
     showText();
 
     //列出排名前N筆結果
-    echo "<table border=\"1\">";
-    echo "<thead><tr><th>index</th><th>word</th><th>tf</th><th>idf</th><th>tf-idf</th></tr></thead>";
-    echo "<tbody>";
-    for ($i = 0; ($i < $topNGram) and ( $i < $gramCount); $i++) {
-        $word = $gramWords[$i];
-        $gram = $gramMap[$word];
-        $value = $gram->tf_idf;
+    if (OUTPUT_MODE === OUTPUT_MODE_CLI) {
+        //CLI模式輸出
+        for ($i = 0; ($i < $topNGram) and ( $i < $gramCount); $i++) {
+            $word = $gramWords[$i];
+            $gram = $gramMap[$word];
+            $value = $gram->tf_idf;
 
-        //showText("{$i},{$gram->word},{$gram->tf},{$gram->idf},{$gram->tf_idf}");
-        echo "<tr><td>{$i}</td><td>{$gram->word}</td><td>{$gram->tf}</td><td>{$gram->idf}</td><td>{$gram->tf_idf}</td></tr>";
+            showText("{$i},{$gram->word},{$gram->tf},{$gram->idf},{$gram->tf_idf}");
+        }
+    } elseif (OUTPUT_MODE === OUTPUT_MODE_HTML) {
+        //HTML模式輸出
+        echo "<table border=\"1\">";
+        echo "<thead><tr><th>index</th><th>word</th><th>tf</th><th>idf</th><th>tf-idf</th></tr></thead>";
+        echo "<tbody>";
+        for ($i = 0; ($i < $topNGram) and ( $i < $gramCount); $i++) {
+            $word = $gramWords[$i];
+            $gram = $gramMap[$word];
+            $value = $gram->tf_idf;
+
+            echo "<tr><td>{$i}</td><td>{$gram->word}</td><td>{$gram->tf}</td><td>{$gram->idf}</td><td>{$gram->tf_idf}</td></tr>";
+        }
+        echo "</tbody>";
+        echo "</table>";
     }
-    echo "</tbody>";
-    echo "</table>";
 
     //關閉資料庫連線
     $dbh = null;
