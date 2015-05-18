@@ -8,9 +8,6 @@ ini_set('display_errors', 1);
 ini_set('memory_limit', -1);
 set_time_limit(600);
 mb_internal_encoding('UTF-8');
-define('OUTPUT_MODE_CLI', 'CLI'); //輸出模式-CLI，不印出<br>，最後的結果用逗號隔開
-define('OUTPUT_MODE_HTML', 'HTML'); //輸出模式-HTML，印出<br>，最後的結果用<TABLE>輸出
-define('OUTPUT_MODE', OUTPUT_MODE_HTML); //輸出模式
 
 /* ========== */
 /* 載入相關檔案 */
@@ -42,7 +39,7 @@ $maxGram = 8;
 /**
  * 要列出排名前多少的關鍵詞
  */
-$topNGram = 50;
+$topNGram = 200;
 
 /**
  * SQL查詢的清單，定義各個主題的SQL查詢指令
@@ -62,12 +59,8 @@ $sqlMap = array(
  * @param type $text 要印出的文字
  */
 function showText($text = '') {
-    if (OUTPUT_MODE === OUTPUT_MODE_CLI) {
-        echo "{$text}\n";
-    } else {
-        echo "{$text}<br>\n";
-        ob_flush();
-    }
+    echo "{$text}<br>\n";
+    ob_flush();
     flush();
 }
 
@@ -268,31 +261,29 @@ try {
     showText("移除子關鍵詞耗時: {$spentTime}");
     showText();
 
-    //列出排名前N筆結果
-    if (OUTPUT_MODE === OUTPUT_MODE_CLI) {
-        //CLI模式輸出
-        for ($i = 0; ($i < $topNGram) and ( $i < $gramCount); $i++) {
-            $word = $gramWords[$i];
-            $gram = $gramMap[$word];
-            $value = $gram->tf_idf;
+    //列出排名前N筆結果，並將結果存到資料庫中
+    //啟動資料庫交易
+    $dbh->beginTransaction();
+    //將原本存在於資料庫中的結果清空
+    $sth = $dbh->prepare('DELETE FROM `words` WHERE `class` = ?;');
+    $sth->execute(array($topic));
+    //輸出結果
+    echo "<table border=\"1\">";
+    echo "<thead><tr><th>index</th><th>word</th><th>tf</th><th>idf</th><th>tf-idf</th></tr></thead>";
+    echo "<tbody>";
+    for ($i = 0; ($i < $topNGram) and ( $i < $gramCount); $i++) {
+        $word = $gramWords[$i];
+        $gram = $gramMap[$word];
+        $value = $gram->tf_idf;
 
-            showText("{$i},{$gram->word},{$gram->tf},{$gram->idf},{$gram->tf_idf}");
-        }
-    } elseif (OUTPUT_MODE === OUTPUT_MODE_HTML) {
-        //HTML模式輸出
-        echo "<table border=\"1\">";
-        echo "<thead><tr><th>index</th><th>word</th><th>tf</th><th>idf</th><th>tf-idf</th></tr></thead>";
-        echo "<tbody>";
-        for ($i = 0; ($i < $topNGram) and ( $i < $gramCount); $i++) {
-            $word = $gramWords[$i];
-            $gram = $gramMap[$word];
-            $value = $gram->tf_idf;
-
-            echo "<tr><td>{$i}</td><td>{$gram->word}</td><td>{$gram->tf}</td><td>{$gram->idf}</td><td>{$gram->tf_idf}</td></tr>";
-        }
-        echo "</tbody>";
-        echo "</table>";
+        echo "<tr><td>{$i}</td><td>{$gram->word}</td><td>{$gram->tf}</td><td>{$gram->idf}</td><td>{$gram->tf_idf}</td></tr>";
+        //將結果存到資料庫中
+        $sth = $dbh->prepare('INSERT INTO `words` (`word`, `tf`, `df`, `idf`, `value`, `class`, `documents`) VALUES (?, ?, ?, ?, ?, ?, ?);');
+        $sth->execute(array($word, $gram->tf, $gram->df, $gram->idf, $gram->tf_idf, $topic, json_encode($gram->documents)));
     }
+    echo "</tbody>";
+    echo "</table>";
+    $dbh->commit();
 
     //關閉資料庫連線
     $dbh = null;
