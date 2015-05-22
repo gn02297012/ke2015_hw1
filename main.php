@@ -6,7 +6,7 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 ini_set('memory_limit', -1);
-set_time_limit(600);
+set_time_limit(0);
 mb_internal_encoding('UTF-8');
 
 /* ========== */
@@ -28,7 +28,7 @@ $tableName = 'ke2015_sample_news';
 /**
  * 要過濾的特殊字元清單
  */
-$specialCharList = " 　\r\n\t\0\x0B\xc2\xa0\"\'\\\/,,.<>+-*/~!@#$%^&()_，。；：、「」＋－＊／★0123456789０１２３４５６７８９";
+$specialCharList = " 　\r\n\t\0\x0B\xc2\xa0\"\'\\\/,,.<>+-*/~!@#$%^&()_?，。；：、「」＋－＊／●○★0123456789０１２３４５６７８９◎※〈〉《》【】";
 
 /**
  * N-Grams的上下限
@@ -107,7 +107,7 @@ try {
 
     $topic = (isset($_GET['topic']) ? $_GET['topic'] : null);
     if (!isset($sqlMap[$topic])) {
-        $topic = '影劇娛樂';
+        $topic = '財經';
     }
     $sql = $sqlMap[$topic];
     showText("SQL: {$sql}");
@@ -182,7 +182,7 @@ try {
     $gramValues = array();
     foreach ($gramMap as $gram) {
         $gram->idf = $rowCount / $gram->df;
-        $gram->tf_idf = (1 + log10($gram->tf)) * (log10($gram->idf));
+        $gram->tf_idf = (1 + log10($gram->tf) * 30) * (1 + log10($gram->idf));
         $gramWords[] = $gram->word;
         $gramValues[] = $gram->tf_idf;
     }
@@ -278,8 +278,8 @@ try {
 
         echo "<tr><td>{$i}</td><td>{$gram->word}</td><td>{$gram->tf}</td><td>{$gram->idf}</td><td>{$gram->tf_idf}</td></tr>";
         //將結果存到資料庫中
-        $sth = $dbh->prepare('INSERT INTO `words` (`word`, `tf`, `df`, `idf`, `value`, `class`, `documents`) VALUES (?, ?, ?, ?, ?, ?, ?);');
-        $sth->execute(array($word, $gram->tf, $gram->df, $gram->idf, $gram->tf_idf, $topic, json_encode($gram->documents)));
+        $sth = $dbh->prepare('INSERT INTO `words` (`word`, `tf`, `df`, `idf`, `value`, `class`, `documents`, `doc_count`) VALUES (?, ?, ?, ?, ?, ?, ?, ?);');
+        $sth->execute(array($word, $gram->tf, $gram->df, $gram->idf, $gram->tf_idf, $topic, json_encode($gram->documents), $rowCount));
     }
     echo "</tbody>";
     echo "</table>";
