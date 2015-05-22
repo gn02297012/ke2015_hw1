@@ -182,7 +182,7 @@ try {
     $gramValues = array();
     foreach ($gramMap as $gram) {
         $gram->idf = $rowCount / $gram->df;
-        $gram->tf_idf = (1 + log10($gram->tf) * 30) * (1 + log10($gram->idf));
+        $gram->tf_idf = (1 + log10($gram->tf) * 15) * (1 + log10($gram->idf));
         $gramWords[] = $gram->word;
         $gramValues[] = $gram->tf_idf;
     }
